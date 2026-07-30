@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ── Custom Theme ── */
+@theme {
+  --color-surface-50: #f8f9fc;
+  --color-surface-100: #f1f3f8;
+  --color-surface-200: #e2e6f0;
+  --color-surface-300: #c5cce0;
+  --color-surface-400: #9ea8c8;
+  --color-surface-500: #7a85b0;
+  --color-surface-600: #5f6998;
+  --color-surface-700: #4e5680;
+  --color-surface-800: #43496b;
+  --color-surface-900: #3a3f5a;
+  --color-surface-950: #0a0a1a;
+
+  --color-accent-50: #e6faff;
+  --color-accent-100: #b3f0ff;
+  --color-accent-200: #80e6ff;
+  --color-accent-300: #4ddbff;
+  --color-accent-400: #26d1ff;
+  --color-accent-500: #00d4ff;
+  --color-accent-600: #00a8cc;
+  --color-accent-700: #007d99;
+  --color-accent-800: #005266;
+  --color-accent-900: #002633;
+
+  --color-primary-50: #f0eeff;
+  --color-primary-100: #d1ccff;
+  --color-primary-200: #b399ff;
+  --color-primary-300: #9466ff;
+  --color-primary-400: #7b61ff;
+  --color-primary-500: #6c3bff;
+  --color-primary-600: #5a2ecc;
+  --color-primary-700: #472299;
+  --color-primary-800: #351566;
+  --color-primary-900: #220933;
+
+  --color-dark: #0a0a1a;
+  --color-light: #f8f9fc;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --animate-glow: glow 4s ease-in-out infinite alternate;
+  --animate-fade-in: fade-in 0.8s ease-out forwards;
+  --animate-slide-up: slide-up 0.6s ease-out forwards;
+}
+
+/* ── Keyframes ── */
+@keyframes glow {
+  0% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Base Styles ── */
+:root {
+  --foreground: #0a0a1a;
+  --background: #f8f9fc;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: rgba(255, 255, 255, 0.3);
+  --card-shadow: 0 8px 32px rgba(10, 10, 26, 0.08);
+  --input-bg: rgba(255, 255, 255, 0.9);
+  --input-border: #e2e6f0;
+  --muted: #7a85b0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: #f1f3f8;
+    --background: #0a0a1a;
+    --card-bg: rgba(255, 255, 255, 0.04);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --input-bg: rgba(255, 255, 255, 0.06);
+    --input-border: rgba(255, 255, 255, 0.1);
+    --muted: #7a85b0;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Background Grid ── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Glassmorphism Card ── */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+
+/* ── Gradient Text ── */
+.gradient-text {
+  background: linear-gradient(135deg, #00d4ff, #7b61ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glow Effect ── */
+.glow {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.08), transparent 70%);
+  animation: glow 4s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+/* ── Input Focus Glow ── */
+.input-glow:focus {
+  outline: none;
+  border-color: #00d4ff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15), 0 0 20px rgba(0, 212, 255, 0.08);
+}
+
+/* ── Button Gradient ── */
+.btn-gradient {
+  background: linear-gradient(135deg, #00d4ff, #7b61ff);
+  transition: all 0.3s ease;
+}
+
+.btn-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(0, 212, 255, 0.3);
+}
+
+.btn-gradient:active {
+  transform: translateY(0);
+}
+
+/* ── Light mode overrides ── */
+@media (prefers-color-scheme: light) {
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .glow {
+    background: radial-gradient(circle, rgba(0, 212, 255, 0.05), transparent 70%);
+  }
+}
