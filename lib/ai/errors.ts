@@ -11,4 +11,8 @@ export const AIErrors = {
     new AIError("Unable to generate project understanding."),
   INVALID_RESPONSE: () =>
     new AIError("Received invalid response from AI."),
+  DIAGRAM_FALLBACK: () =>
+    new AIError(
+      "AI diagram was invalid after retries; a simplified fallback diagram was used."
+    ),
 } as const;
