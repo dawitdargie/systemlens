@@ -20,7 +20,7 @@ interface GitHubRepoResponse {
  * @param owner - Repository owner (user or organization)
  * @param repo - Repository name
  * @returns Repository metadata matching our domain model
- * @throws GitHubError on API errors
+ * @throws GitHubError on API errors or timeout
  */
 export async function fetchRepository(
   owner: string,
@@ -36,15 +36,23 @@ export async function fetchRepository(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
   let response: Response;
 
   try {
     response = await fetch(
       `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
-      { headers }
+      { headers, signal: controller.signal }
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new GitHubError("Request timed out while fetching repository metadata.");
+    }
     throw GitHubErrors.NETWORK();
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (response.status === 404) {

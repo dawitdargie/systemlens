@@ -15,7 +15,7 @@ interface GitHubContentResponse {
  * @param path - File path within the repository (e.g. "README.md")
  * @param branch - Branch name (e.g. "main" or "master")
  * @returns The decoded file content as a UTF-8 string
- * @throws GitHubError on API errors or if file is not found
+ * @throws GitHubError on API errors or timeout
  */
 export async function fetchFileContent(
   owner: string,
@@ -33,15 +33,23 @@ export async function fetchFileContent(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
   let response: Response;
 
   try {
     response = await fetch(
       `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`,
-      { headers }
+      { headers, signal: controller.signal }
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new GitHubError(`Request timed out while fetching file: ${path}`);
+    }
     throw GitHubErrors.NETWORK();
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (response.status === 404) {
