@@ -16,6 +16,10 @@ vi.mock("./fetch-file", () => ({ fetchFileContent: vi.fn() }));
 vi.mock("@/lib/analyzer", () => ({ analyzeTechnicalFacts: vi.fn() }));
 vi.mock("@/lib/ai", () => ({ generateUnderstanding: vi.fn() }));
 vi.mock("@/lib/profile", () => ({ buildProfile: vi.fn() }));
+vi.mock("@/lib/cache/analysis-cache", () => ({
+  getCachedAnalysis: vi.fn(() => null),
+  setCachedAnalysis: vi.fn(),
+}));
 
 // Get typed references to the mocked functions
 const mockFetchRepository = vi.mocked(fetchRepository);
@@ -85,7 +89,8 @@ describe("analyzeRepository", () => {
 
     expect(result).toEqual(mockProfile);
     expect(mockFetchRepository).toHaveBeenCalledWith("gin-gonic", "gin");
-    expect(mockFetchRepositoryTree).toHaveBeenCalledWith("gin-gonic", "gin", "master");
+    // Tree is fetched in parallel with repo metadata using "HEAD" first
+    expect(mockFetchRepositoryTree).toHaveBeenCalledWith("gin-gonic", "gin", "HEAD");
     expect(mockAnalyzeTechnicalFacts).toHaveBeenCalled();
     expect(mockGenerateUnderstanding).toHaveBeenCalled();
     expect(mockBuildProfile).toHaveBeenCalledWith(mockRepo, mockTechFacts, mockUnderstanding);
@@ -101,6 +106,9 @@ describe("analyzeRepository", () => {
     mockFetchRepository.mockRejectedValue(
       new Error("Repository not found.")
     );
+    // Tree fetch is also called in parallel; it must resolve (or reject)
+    // so the Promise.all doesn't fail on undefined.
+    mockFetchRepositoryTree.mockResolvedValue([]);
 
     await expect(
       analyzeRepository("https://github.com/owner/nonexistent")
@@ -170,6 +178,7 @@ describe("analyzeRepository", () => {
 
     const result = await analyzeRepository("https://github.com/owner/repo");
 
+    // All important files are fetched in parallel upfront
     expect(mockFetchFileContent).toHaveBeenCalledWith("owner", "repo", "README.md", "main");
     expect(mockFetchFileContent).toHaveBeenCalledWith("owner", "repo", "main.go", "main");
     expect(mockGenerateUnderstanding).toHaveBeenCalledWith({

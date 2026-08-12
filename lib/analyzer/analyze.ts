@@ -9,6 +9,8 @@ import { parseDocker } from "./docker-parser";
  * Combines manifest parsing (language, framework) and Docker parsing
  * (deployment) into a single TechnicalFacts object.
  *
+ * Fetches manifest and Docker files in parallel for better performance.
+ *
  * @param importantFiles - The important files detected from the repository tree
  * @param fetchFile - A function that fetches file content by path
  * @returns TechnicalFacts with language, framework, and deployment
@@ -22,32 +24,43 @@ export async function analyzeTechnicalFacts(
   let framework = "Unknown";
   let deployment = "None";
 
-  // Parse manifest file if present
+  // Fetch manifest and Docker files in parallel
+  const fetches: Promise<void>[] = [];
+
   if (importantFiles.manifest) {
-    try {
-      const content = await fetchFile(importantFiles.manifest);
-      const result = parseManifest(importantFiles.manifest, content);
-      if (result) {
-        language = result.language;
-        framework = result.framework;
-      }
-    } catch {
-      // If file fetch fails, keep defaults
-    }
+    fetches.push(
+      (async () => {
+        try {
+          const content = await fetchFile(importantFiles.manifest!);
+          const result = parseManifest(importantFiles.manifest!, content);
+          if (result) {
+            language = result.language;
+            framework = result.framework;
+          }
+        } catch {
+          // If file fetch fails, keep defaults
+        }
+      })()
+    );
   }
 
-  // Parse Docker file if present
   if (importantFiles.docker) {
-    try {
-      const content = await fetchFile(importantFiles.docker);
-      const result = parseDocker(importantFiles.docker, content);
-      if (result) {
-        deployment = result.deployment;
-      }
-    } catch {
-      // If file fetch fails, keep default
-    }
+    fetches.push(
+      (async () => {
+        try {
+          const content = await fetchFile(importantFiles.docker!);
+          const result = parseDocker(importantFiles.docker!, content);
+          if (result) {
+            deployment = result.deployment;
+          }
+        } catch {
+          // If file fetch fails, keep default
+        }
+      })()
+    );
   }
+
+  await Promise.all(fetches);
 
   return { language, framework, deployment };
 }
