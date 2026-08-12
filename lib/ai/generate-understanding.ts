@@ -1,6 +1,7 @@
 import { ProjectUnderstanding, Repository, TechnicalFacts } from "@/types";
-import { getAIClient } from "./ai-client";
+import { getAIClient, getAIModel } from "./ai-client";
 import { AIError, AIErrors } from "./errors";
+import { RateLimitError, isRateLimitError, getRetryAfterSeconds } from "./rate-limit";
 
 export interface GenerateUnderstandingInput {
   repository: Repository;
@@ -9,12 +10,16 @@ export interface GenerateUnderstandingInput {
   entryPointContent: string | null;
 }
 
+const MAX_ATTEMPTS = 2;
+const REQUEST_TIMEOUT_MS = 50_000;
+
 export async function generateUnderstanding(
   input: GenerateUnderstandingInput
 ): Promise<ProjectUnderstanding> {
   const client = getAIClient();
-
-  const { repository, technicalFacts, readmeContent, entryPointContent } = input;
+  const model = getAIModel();
+  const { repository, technicalFacts, readmeContent, entryPointContent } =
+    input;
 
   const prompt = buildPrompt({
     repository,
@@ -23,57 +28,111 @@ export async function generateUnderstanding(
     entryPointContent,
   });
 
-  try {
-    const response = await Promise.race([
-      client.chat.completions.create({
-        model: "meta/llama-3.1-8b-instruct",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2,
-        top_p: 0.7,
-        max_tokens: 1024,
-        stream: false,
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new AIError("AI request timed out after 60 seconds.")),
-          60000
-        )
-      ),
-    ]);
+  console.time("generateUnderstanding");
 
-    const text = response.choices[0]?.message?.content?.trim();
-    if (!text) {
-      throw AIErrors.GENERATION_FAILED();
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // AbortController actually cancels the underlying HTTP request on
+    // timeout, rather than leaving it hanging in the background.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await client.chat.completions.create(
+        {
+          model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 1,
+          top_p: 1,
+          max_tokens: 4096,
+          stream: false,
+          response_format: { type: "json_object" },
+        },
+        { signal: controller.signal }
+      );
+
+      const text = response.choices[0]?.message?.content?.trim();
+      if (!text) {
+        throw new Error("Empty response from AI.");
+      }
+
+      const parsed = parseUnderstandingJson(text);
+
+      clearTimeout(timeout);
+      console.timeEnd("generateUnderstanding");
+      return parsed;
+    } catch (error) {
+      clearTimeout(timeout);
+
+      if (controller.signal.aborted) {
+        // Timeouts — don't retry, surface immediately.
+        console.timeEnd("generateUnderstanding");
+        throw new AIError(
+          `AI request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds.`
+        );
+      }
+
+      // If rate limited, throw immediately — don't retry (hitting the same
+      // endpoint again would just waste quota and time).
+      if (isRateLimitError(error)) {
+        clearTimeout(timeout);
+        console.timeEnd("generateUnderstanding");
+        throw new RateLimitError(getRetryAfterSeconds(error));
+      }
+
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Log and retry for non-rate-limit failures (JSON parse, validation, etc.)
+      console.error(
+        `[generateUnderstanding] Attempt ${attempt} failed: ${lastError.message}`
+      );
     }
-
-    const parsed = JSON.parse(text) as Partial<ProjectUnderstanding>;
-
-    if (
-      !parsed.purpose ||
-      !Array.isArray(parsed.mainModules) ||
-      !parsed.architectureSummary ||
-      !Array.isArray(parsed.keyFeatures) ||
-      !parsed.techStackDetails ||
-      !parsed.dataFlow
-    ) {
-      throw AIErrors.INVALID_RESPONSE();
-    }
-
-    return {
-      purpose: parsed.purpose,
-      mainModules: parsed.mainModules.map((m) => ({
-        name: m.name || "Unknown",
-        description: m.description || "",
-      })),
-      architectureSummary: parsed.architectureSummary,
-      keyFeatures: parsed.keyFeatures,
-      techStackDetails: parsed.techStackDetails,
-      dataFlow: parsed.dataFlow,
-    };
-  } catch (error) {
-    if (error instanceof AIError) throw error;
-    throw AIErrors.GENERATION_FAILED();
   }
+
+  console.error(
+    "[generateUnderstanding] AI project understanding failed after all retries:",
+    lastError
+  );
+  console.timeEnd("generateUnderstanding");
+  throw AIErrors.GENERATION_FAILED();
+}
+
+/**
+ * Parse and validate the AI's JSON response into a ProjectUnderstanding.
+ * Strips markdown code fences if present and validates required fields.
+ */
+function parseUnderstandingJson(text: string): ProjectUnderstanding {
+  // Strip markdown code fences if the AI wraps the JSON in ```json ... ```
+  const cleaned = text
+    .replace(/^```(?:json)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/i, "")
+    .trim();
+
+  const parsed = JSON.parse(cleaned) as Partial<ProjectUnderstanding>;
+
+  if (
+    !parsed.purpose ||
+    !Array.isArray(parsed.mainModules) ||
+    !parsed.architectureSummary ||
+    !Array.isArray(parsed.keyFeatures) ||
+    !parsed.techStackDetails ||
+    !parsed.dataFlow
+  ) {
+    throw AIErrors.INVALID_RESPONSE();
+  }
+
+  return {
+    purpose: parsed.purpose,
+    mainModules: parsed.mainModules.map((m) => ({
+      name: m.name || "Unknown",
+      description: m.description || "",
+    })),
+    architectureSummary: parsed.architectureSummary,
+    keyFeatures: parsed.keyFeatures,
+    techStackDetails: parsed.techStackDetails,
+    dataFlow: parsed.dataFlow,
+  };
 }
 
 function buildPrompt(input: GenerateUnderstandingInput): string {
@@ -95,23 +154,17 @@ function buildPrompt(input: GenerateUnderstandingInput): string {
   ];
 
   if (readmeContent) {
-    lines.push(`README.md content:`);
-    lines.push(
-      readmeContent.length > 4000
-        ? readmeContent.slice(0, 4000) + "\n... (truncated)"
-        : readmeContent
-    );
-    lines.push("");
+    const truncated = readmeContent.length > 1500
+      ? readmeContent.slice(0, 1500) + "\n... (truncated)"
+      : readmeContent;
+    lines.push(`README.md content:`, truncated, "");
   }
 
   if (entryPointContent) {
-    lines.push(`Entry point file content:`);
-    lines.push(
-      entryPointContent.length > 2000
-        ? entryPointContent.slice(0, 2000) + "\n... (truncated)"
-        : entryPointContent
-    );
-    lines.push("");
+    const truncated = entryPointContent.length > 800
+      ? entryPointContent.slice(0, 800) + "\n... (truncated)"
+      : entryPointContent;
+    lines.push(`Entry point file content:`, truncated, "");
   }
 
   lines.push(

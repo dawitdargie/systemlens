@@ -12,6 +12,7 @@ vi.mock("./ai-client", () => ({
       },
     },
   }),
+  getAIModel: () => "meta/llama-3.3-70b-instruct",
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -82,9 +83,11 @@ describe("generateUnderstanding", () => {
     expect(result.keyFeatures).toContain("Fast");
     expect(result.techStackDetails).toBe("Go with Gin for HTTP routing.");
     expect(result.dataFlow).toBe("Request -> Router -> Handler -> Response.");
+    // Single attempt when first response is valid
+    expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("throws on empty response text", async () => {
+  it("throws on empty response text after retries", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: "" } }],
     });
@@ -99,9 +102,11 @@ describe("generateUnderstanding", () => {
     await expect(generateUnderstanding(input)).rejects.toThrow(
       "Unable to generate project understanding."
     );
+    // Retries once before giving up
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("throws on invalid JSON response", async () => {
+  it("throws on invalid JSON response after retries", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: "not json" } }],
     });
@@ -116,9 +121,27 @@ describe("generateUnderstanding", () => {
     await expect(generateUnderstanding(input)).rejects.toThrow(
       "Unable to generate project understanding."
     );
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
-  it("throws on missing required fields", async () => {
+  it("retries and succeeds on second attempt after invalid first attempt", async () => {
+    mockCreate
+      .mockResolvedValueOnce({ choices: [{ message: { content: "not json" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: VALID_JSON } }] });
+
+    const input: GenerateUnderstandingInput = {
+      repository: mockRepo,
+      technicalFacts: mockTechFacts,
+      readmeContent: null,
+      entryPointContent: null,
+    };
+
+    const result = await generateUnderstanding(input);
+    expect(result.purpose).toBe("Gin is a web framework for Go.");
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws on missing required fields after retries", async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({ purpose: "" }) } }],
     });
@@ -131,8 +154,9 @@ describe("generateUnderstanding", () => {
     };
 
     await expect(generateUnderstanding(input)).rejects.toThrow(
-      "Received invalid response from AI."
+      "Unable to generate project understanding."
     );
+    expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 
   it("works without README and entry point", async () => {
