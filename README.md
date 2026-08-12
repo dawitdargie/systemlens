@@ -1,6 +1,40 @@
 # SystemLens
 
-> **Understand any GitHub repository instantly.** Paste a URL. Get a complete project profile, audience-tailored explanations, an architecture diagram, and AI-powered answers to your questions — grounded in the actual source code.
+**Understand any GitHub repository instantly — tailored to your role.**
+
+🌐 **[https://systemlenss.vercel.app/](https://systemlenss.vercel.app/)**
+
+Understanding a new repository shouldn't take days.
+
+Whether you're joining a new project as a **Developer**, evaluating it as a **CEO**, or looking at it from a **PM**, **QA**, or **Customer** perspective, you'll face hundreds of files, unfamiliar folders, and code you need to understand before the big picture clicks.
+
+**SystemLens** solves this by combining deterministic repository analysis with AI-powered understanding — then explaining the **same system differently** to each audience.
+
+---
+
+## How It Works
+
+SystemLens turns any GitHub repository into an instantly understandable project through four simple steps:
+
+| Step | What You Do | What You Get |
+|------|-------------|--------------|
+| **1. Paste a URL** | Drop any public GitHub repo link (e.g. `https://github.com/gin-gonic/gin`) into the input field | The system validates and resolves the repository |
+| **2. Analyze** | Click **Analyze** and watch live progress | Real-time SSE progress: fetching metadata → scanning file tree → extracting tech facts → generating AI understanding |
+| **3. Explore** | Browse the **Project Profile** or switch perspectives in the **Audience Picker** | A structured profile (purpose, architecture, modules, tech stack, data flow) plus a tailored explanation with a Mermaid diagram for each role |
+| **4. Ask** | Type any question in the **Ask Questions** chat | Code-aware AI answers — the system automatically fetches relevant source files and grounds responses in actual code |
+
+---
+
+## What You Get
+
+After analyzing a repository, SystemLens delivers **four things**:
+
+- **📊 Project Profile** — A structured breakdown of the repository's purpose, architecture, main modules, tech stack, and data flow — no manual reading required.
+- **🎭 Audience-Specific Explanations** — Five pre-written explanations tailored to **CEOs** (business value), **PMs** (scope & milestones), **Developers** (architecture & patterns), **QA** (testing concerns), and **Customers** (user benefits), each with an interactive architecture diagram.
+- **🔗 Interactive Architecture Diagram** — A Mermaid diagram of the system's structure with **zoom**, **pan**, **fullscreen**, and **retry** controls.
+- **💬 Ask the Codebase** — A streaming chat that answers questions about the code, automatically fetching relevant source files for accurate, code-grounded responses.
+
+---
 
 ## Features
 
@@ -12,6 +46,8 @@
 - **Rate-Limit Aware** — Automatic detection of 429 errors with countdown timers and retry buttons.
 - **Smart Caching** — Disk-based analysis cache (24h TTL), in-memory explanation cache (30 min TTL), and chat caches for file trees and contents.
 - **Light/Dark Mode** — Toggle between themes with system preference detection.
+
+---
 
 ## Tech Stack
 
@@ -25,6 +61,8 @@
 | Styling | Tailwind CSS with CSS variables for theming |
 | Testing | Vitest |
 | Deployment | Vercel (commit-and-push deployment) |
+
+---
 
 ## Getting Started
 
@@ -83,6 +121,8 @@ npx vitest
 npm run build
 ```
 
+---
+
 ## Usage
 
 1. Open [http://localhost:3000](http://localhost:3000)
@@ -91,6 +131,8 @@ npm run build
 4. Browse the **Project Profile** (tech stack, purpose, architecture, key features, data flow)
 5. Click **Tailored Explanations** and select an audience (CEO, PM, Developer, QA, Customer) to get an AI-generated explanation with a Mermaid architecture diagram
 6. Use **Ask Questions** to chat with the repository — code-related questions will fetch relevant source files for accurate answers
+
+---
 
 ## API Endpoints
 
@@ -103,6 +145,8 @@ All endpoints use **POST** with **JSON request bodies** and return **SSE (Server
 | `POST /api/chat` | Answer project/code questions with streaming text |
 
 See [docs/07-api-design/api-spec.md](docs/07-api-design/api-spec.md) for full API documentation.
+
+---
 
 ## Architecture
 
@@ -120,6 +164,16 @@ Next.js API Routes (Backend)
 
 See [docs/04-architecture/](docs/04-architecture/) for the full architecture documentation.
 
+---
+
+## Live Demo
+
+SystemLens is deployed on **Vercel** and available 24/7:
+
+🌐 **[https://systemlenss.vercel.app/](https://systemlenss.vercel.app/)**
+
+---
+
 ## Deployment
 
 SystemLens is deployed on **Vercel**. Once connected to a GitHub repository, every commit to the main branch triggers an automatic rebuild and deployment — simply commit and push to update the live site.
@@ -135,6 +189,8 @@ SystemLens is deployed on **Vercel**. Once connected to a GitHub repository, eve
 5. Deploy!
 
 After initial setup, **every subsequent `git push` automatically deploys** a new version.
+
+---
 
 ## Documentation
 
@@ -154,6 +210,8 @@ Full architecture and design documentation is in the [`docs/`](docs/) directory:
 | 10 | Implementation Plan | Phased development strategy |
 | 11 | Deployment Design | Hosting, environment variables, deployment rules |
 | 12 | Testing Strategy | Testing layers and tooling |
+
+---
 
 ## License
 
